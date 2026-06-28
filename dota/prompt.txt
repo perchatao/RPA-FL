@@ -1,0 +1,60 @@
+You are a remote sensing and computer vision expert. In the DOTA aerial dataset, visual similarity between two object categories is the cosine similarity of DINOv2 (Vision Transformer) features extracted from real aerial images (range 0–1; higher = more alike in overhead appearance).
+IMPORTANT — what DINOv2 actually encodes here:
+
+DINOv2 features are extracted from each object's bounding box expanded by 15% on each side, so the feature captures the object AND its immediate surrounding context (adjacent terrain, nearby structures, ground texture).
+These ViT features are driven mainly by TEXTURE, STRUCTURE, SCALE, and SURROUNDING CONTEXT — NOT by object semantics or category meaning. Two categories that are semantically unrelated can score very high if they share the same overhead texture/scale/background. Color is a weak, secondary signal.
+Therefore: reason about how regions LOOK and what SCENE they sit in from directly overhead, never about what the object "is for."
+There are two groups of categories. The fixed COLUMN ORDER for everything below is: all base classes first, then all novel classes, exactly as listed here.
+Base classes (11): "plane", "ship", "storage tank", "baseball diamond", "basketball court", "ground track field", "harbor", "bridge", "large vehicle", "small vehicle", "roundabout"
+Novel classes (4): "tennis court", "helicopter", "soccer ball field", "swimming pool"
+I have NO images for the novel classes — predicting their similarities is your task.
+I have real aerial images for the base classes, so the matrix below contains the ACTUAL DINOv2 cosine similarities measured on those images — i.e. the specific behavior of the DINOv2 extractor, not abstract "true" similarity (another backbone would give different numbers). Predict the values DINOv2 WOULD produce for the novel classes, matching the texture/scale/context-driven patterns in this matrix.
+BASE CLASS SIMILARITY MATRIX:
+plane                  ship          storage tank      baseball diamond      basketball court    ground track field                harbor                bridge         large vehicle         small vehicle            roundabout
+plane                       1.00  0.48  0.38  0.44  0.43  0.38  0.52  0.47  0.45  0.40  0.38
+ship                        0.48  1.00  0.62  0.53  0.45  0.37  0.73  0.66  0.72  0.75  0.52
+storage tank                0.38  0.62  1.00  0.64  0.43  0.31  0.52  0.72  0.63  0.72  0.76
+baseball diamond            0.44  0.53  0.64  1.00  0.66  0.65  0.63  0.73  0.57  0.55  0.74
+basketball court            0.43  0.45  0.43  0.66  1.00  0.75  0.56  0.60  0.55  0.46  0.51
+ground track field          0.38  0.37  0.31  0.65  0.75  1.00  0.57  0.55  0.47  0.35  0.50
+harbor                      0.52  0.73  0.52  0.63  0.56  0.57  1.00  0.70  0.70  0.60  0.54
+bridge                      0.47  0.66  0.72  0.73  0.60  0.55  0.70  1.00  0.74  0.75  0.74
+large vehicle               0.45  0.72  0.63  0.57  0.55  0.47  0.70  0.74  1.00  0.86  0.57
+small vehicle               0.40  0.75  0.72  0.55  0.46  0.35  0.60  0.75  0.86  1.00  0.59
+roundabout                  0.38  0.52  0.76  0.74  0.51  0.50  0.54  0.74  0.57  0.59  1.00
+Value range: min=0.31, mean=0.57, max=0.86
+Work through the following steps. Steps 1–5 are reasoning; only the final block is the deliverable.
+STEP 1 — Appearance. For every category (all base and all novel classes), write one short line describing how it looks from directly above: dominant texture, typical footprint size/scale, shape, the surrounding scene it usually sits in, and any distinctive overhead signature. Emphasize texture/scale/context over color.
+STEP 2 — Reverse-engineer the embedding structure from the real matrix. Before predicting anything, study the base matrix and state, in your own words, the latent axes / clusters that DINOv2 appears to encode in THIS dataset. Identify which groups of base classes cluster tightly and why, and note that proximity is driven by shared texture/scale/context, not semantics. (As guidance, look at evidence like: large vehicle–small vehicle 0.86, small vehicle–ship 0.75, small vehicle–bridge 0.75, ship–large vehicle 0.72 forming one "compact / linear hard-surface transport object" cluster (harbor sits nearby); storage tank–roundabout 0.76 pairing on shared "round circular footprint" despite unrelated semantics; basketball court–ground track field 0.75, baseball diamond–basketball court 0.66, baseball diamond–ground track field 0.65 forming an "open recreational sports ground" cluster; and that "plane" and "ground track field" are PERIPHERAL classes scoring low with most others, e.g. ground track field–storage tank 0.31 is the matrix minimum and plane peaks at only harbor 0.52.) Summarize the main axes you infer.
+STEP 3 — Calibrate the scale on FIXED, partly counterintuitive pairs. Using your Step-1 appearance and Step-2 axes, explain why each of these specific real values sits where it does:
+
+large vehicle vs small vehicle = 0.86 (HIGH, same compact-transport cluster)
+storage tank vs roundabout = 0.76 (HIGH despite unrelated semantics — what shared round/circular footprint produces this?)
+basketball court vs ground track field = 0.75 (HIGH, same open sports-ground cluster)
+small vehicle vs bridge = 0.75 (HIGH — linear/elongated hard-surface structures, counterintuitive)
+baseball diamond vs large vehicle = 0.57 (MID, partial overlap across clusters)
+plane vs harbor = 0.52 (MID)
+plane vs roundabout = 0.38 (LOW, different scale/texture)
+ground track field vs storage tank = 0.31 (LOW, opposite ends of the vegetated-ground↔industrial-circular axis)
+This anchors your appearance reasoning to the dataset's numeric scale. Note the target distribution you must roughly reproduce: min≈0.31, mean≈0.57, max≈0.86. Real rows use the FULL range — do not compress everything into 0.5–0.6.
+STEP 4 — Place each novel class and decide whether to "borrow a row".
+
+First decide, for each novel class, whether a base class is a STRONG overhead twin (near-identical texture, scale, and surrounding scene). If yes, anchor that novel class's whole similarity row to the twin's row and then adjust individual cells where the novel class differs. If NO base class is a strong twin, do NOT force-fit one — derive the row directly from the Step-1 appearance and the Step-2/3 calibrated scale.
+(Candidate twins to evaluate, not to assume blindly: tennis court ↔ basketball court; soccer ball field ↔ ground track field / baseball diamond; helicopter ↔ plane, but note plane is a PERIPHERAL class scoring low with most others, so helicopter's row should likewise be generally low with its highest cell at plane itself; swimming pool ↔ no clean twin — a small flat rectangular/oval WATER feature blending a water-texture signal (some affinity to harbor) with a small-flat-rectangle shape (some affinity to courts), so reason directly rather than force-fitting.)
+Also state whether each novel class is "central/generic" (tends to score moderately high with many classes, like bridge) or "peripheral/distinctive" (tends to score low with most, like plane or ground track field). Use this to set the overall level of its row.
+STEP 5 — Predict and self-check. For each novel class, produce its similarity to every category in the fixed column order (base classes first, then novel classes), each value grounded in Steps 1–4. Then verify ALL of the following before writing the final block:
+
+Self-similarity = 1.00.
+Novel-to-novel pairs are symmetric — identical value in both directions:
+(tennis court, helicopter), (tennis court, soccer ball field), (tennis court, swimming pool),
+(helicopter, soccer ball field), (helicopter, swimming pool),
+(soccer ball field, swimming pool).
+Range coverage: each row uses a realistic spread; your overall set of values should roughly match min≈0.31 / mean≈0.57 / max≈0.86, not be squeezed toward the middle.
+Rough transitivity: if a novel class is very similar to some base class X, its values should not wildly contradict X's own row (e.g. if tennis court≈basketball court is high, tennis court–ground track field should sit near basketball court–ground track field≈0.75).
+After your reasoning, output ONLY this block — 4 rows, each with 15 values in the fixed column order (base then novel), 2 decimals. The block must be the LAST thing in your response, with no text after it:
+===MATRIX START===
+tennis court: v1 v2 ... v15
+helicopter: v1 v2 ... v15
+soccer ball field: v1 v2 ... v15
+swimming pool: v1 v2 ... v15
+===MATRIX END===

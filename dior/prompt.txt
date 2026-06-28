@@ -1,0 +1,64 @@
+You are a remote sensing and computer vision expert. In the DIOR aerial/satellite dataset, visual similarity between two object categories is the cosine similarity of DINOv2 (Vision Transformer) features extracted from real aerial images (range 0–1; higher = more alike in overhead appearance).
+IMPORTANT — what DINOv2 actually encodes here:
+
+DINOv2 features are extracted from each object's bounding box expanded by 15% on each side, so the feature captures the object AND its immediate surrounding context (adjacent terrain, nearby structures, ground texture).
+These ViT features are driven mainly by TEXTURE, STRUCTURE, SCALE, and SURROUNDING CONTEXT — NOT by object semantics or category meaning. Two categories that are semantically unrelated can score very high if they share the same overhead texture/scale/background. Color is a weak, secondary signal.
+Therefore: reason about how regions LOOK and what SCENE they sit in from directly overhead, never about what the object "is for."
+There are two groups of categories. The fixed COLUMN ORDER for everything below is: all base classes first, then all novel classes, exactly as listed here.
+Base classes (16): "airplane", "baseball field", "bridge", "chimney", "dam", "expressway service area", "expressway toll station", "golf field", "harbor", "overpass", "ship", "stadium", "storage tank", "tennis court", "train station", "vehicle"
+Novel classes (4): "airport", "basketball court", "ground track field", "windmill"
+I have NO images for the novel classes — predicting their similarities is your task.
+I have real aerial images for the base classes, so the matrix below contains the ACTUAL DINOv2 cosine similarities measured on those images. These are NOT abstract "true" visual similarities — they are the specific behavior of the DINOv2 feature extractor, which you must replicate. A different backbone (CLIP, ResNet, SAM, ...) would give completely different numbers. Your task is to predict the values DINOv2 WOULD produce for the novel classes, matching the same texture/scale/context-driven patterns visible in this matrix — not to judge how alike the objects "really" look to a human.
+BASE CLASS SIMILARITY MATRIX:
+airplane             baseball field                     bridge                    chimney                        dam    expressway service area    expressway toll station                 golf field                     harbor                   overpass                       ship                    stadium               storage tank               tennis court              train station                    vehicle
+airplane                    1.00  0.41  0.53  0.32  0.32  0.36  0.50  0.27  0.48  0.44  0.53  0.24  0.46  0.40  0.29  0.49
+baseball field              0.41  1.00  0.60  0.38  0.51  0.56  0.54  0.53  0.47  0.54  0.45  0.57  0.46  0.49  0.49  0.42
+bridge                      0.53  0.60  1.00  0.42  0.65  0.68  0.86  0.49  0.64  0.87  0.71  0.45  0.64  0.54  0.57  0.72
+chimney                     0.32  0.38  0.42  1.00  0.49  0.47  0.40  0.38  0.36  0.39  0.28  0.37  0.34  0.23  0.51  0.23
+dam                         0.32  0.51  0.65  0.49  1.00  0.77  0.50  0.72  0.61  0.63  0.29  0.53  0.23  0.32  0.64  0.22
+expressway service area     0.36  0.56  0.68  0.47  0.77  1.00  0.56  0.77  0.56  0.80  0.29  0.63  0.24  0.36  0.84  0.26
+expressway toll station     0.50  0.54  0.86  0.40  0.50  0.56  1.00  0.35  0.57  0.69  0.76  0.43  0.69  0.58  0.52  0.80
+golf field                  0.27  0.53  0.49  0.38  0.72  0.77  0.35  1.00  0.48  0.53  0.21  0.53  0.16  0.30  0.63  0.14
+harbor                      0.48  0.47  0.64  0.36  0.61  0.56  0.57  0.48  1.00  0.57  0.59  0.43  0.36  0.42  0.54  0.42
+overpass                    0.44  0.54  0.87  0.39  0.63  0.80  0.69  0.53  0.57  1.00  0.48  0.49  0.42  0.44  0.67  0.48
+ship                        0.53  0.45  0.71  0.28  0.29  0.29  0.76  0.21  0.59  0.48  1.00  0.25  0.75  0.48  0.25  0.89
+stadium                     0.24  0.57  0.45  0.37  0.53  0.63  0.43  0.53  0.43  0.49  0.25  1.00  0.20  0.43  0.72  0.20
+storage tank                0.46  0.46  0.64  0.34  0.23  0.24  0.69  0.16  0.36  0.42  0.75  0.20  1.00  0.41  0.20  0.79
+tennis court                0.40  0.49  0.54  0.23  0.32  0.36  0.58  0.30  0.42  0.44  0.48  0.43  0.41  1.00  0.38  0.46
+train station               0.29  0.49  0.57  0.51  0.64  0.84  0.52  0.63  0.54  0.67  0.25  0.72  0.20  0.38  1.00  0.21
+vehicle                     0.49  0.42  0.72  0.23  0.22  0.26  0.80  0.14  0.42  0.48  0.89  0.20  0.79  0.46  0.21  1.00
+Value range: min=0.14, mean=0.48, max=0.89
+Work through the following steps. Steps 1–5 are reasoning; only the final block is the deliverable.
+STEP 1 — Appearance. For every category (all base and all novel classes), write one short line describing how it looks from directly above: dominant texture, typical footprint size/scale, shape, the surrounding scene it usually sits in, and any distinctive overhead signature. Emphasize texture/scale/context over color.
+STEP 2 — Reverse-engineer the embedding structure from the real matrix. Before predicting anything, study the base matrix and state, in your own words, the latent axes / clusters that DINOv2 appears to encode in THIS dataset. Identify which groups of base classes cluster tightly and why, and note that proximity is driven by shared texture/scale/context, not semantics. (As guidance, look at evidence like: ship–vehicle 0.89, vehicle–storage tank 0.79, ship–storage tank 0.75 forming one "small, hard-edged, compact industrial object" cluster; bridge–overpass 0.87, bridge–expressway toll station 0.86 forming a "linear road infrastructure" cluster; golf field / dam / expressway service area / train station / stadium forming a "large open / vegetated / sprawling landscape" cluster; and cross-cluster lows like golf field–storage tank 0.16, golf field–vehicle 0.14.) Summarize the main axes you infer.
+STEP 3 — Calibrate the scale on FIXED, partly counterintuitive pairs. Using your Step-1 appearance and Step-2 axes, explain why each of these specific real values sits where it does:
+
+ship vs vehicle = 0.89 (HIGH despite unrelated semantics — what shared texture/scale/context produces this?)
+bridge vs overpass = 0.87 (HIGH, same infrastructure cluster)
+train station vs expressway service area = 0.84 (HIGH, large sprawling-complex cluster)
+baseball field vs train station = 0.49 (MID, partial overlap across clusters)
+airplane vs vehicle = 0.49 (MID)
+storage tank vs stadium = 0.20 (LOW, different scale/texture)
+golf field vs storage tank = 0.16 (LOW, opposite ends of the vegetated↔industrial axis)
+This anchors your appearance reasoning to the dataset's numeric scale. Note the target distribution you must roughly reproduce: min≈0.14, mean≈0.48, max≈0.89. Real rows use the FULL range — do not compress everything into 0.4–0.6.
+STEP 4 — Place each novel class and decide whether to "borrow a row".
+
+First decide, for each novel class, whether a base class is a STRONG overhead twin (near-identical texture, scale, and surrounding scene). If yes, anchor that novel class's whole similarity row to the twin's row and then adjust individual cells where the novel class differs. If NO base class is a strong twin, do NOT force-fit one — derive the row directly from the Step-1 appearance and the Step-2/3 calibrated scale.
+(Candidate twins to evaluate, not to assume blindly: basketball court ↔ tennis court; ground track field ↔ stadium / baseball field; windmill ↔ chimney / storage tank; airport ↔ airplane, but consider that an airport scene is a large multi-runway complex, closer to large-sprawling-infrastructure than to a single aircraft.)
+Also state whether each novel class is "central/generic" (tends to score moderately high with many classes, like bridge) or "peripheral/distinctive" (tends to score low with most, like golf field or storage tank). Use this to set the overall level of its row.
+STEP 5 — Predict and self-check. For each novel class, produce its similarity to every category in the fixed column order (base classes first, then novel classes), each value grounded in Steps 1–4. Then verify ALL of the following before writing the final block:
+
+Self-similarity = 1.00.
+Novel-to-novel pairs are symmetric — identical value in both directions:
+(airport, basketball court), (airport, ground track field), (airport, windmill),
+(basketball court, ground track field), (basketball court, windmill),
+(ground track field, windmill).
+Range coverage: each row uses a realistic spread; your overall set of values should roughly match min≈0.14 / mean≈0.48 / max≈0.89, not be squeezed toward the middle.
+Rough transitivity: if a novel class is very similar to some base class X, its values should not wildly contradict X's own row (e.g. if airport≈airplane is high, airport–ship should sit near airplane–ship≈0.53).
+After your reasoning, output ONLY this block — 4 rows, each with 20 values in the fixed column order (base then novel), 2 decimals. The block must be the LAST thing in your response, with no text after it:
+===MATRIX START===
+airport: v1 v2 ... v20
+basketball court: v1 v2 ... v20
+ground track field: v1 v2 ... v20
+windmill: v1 v2 ... v20
+===MATRIX END===

@@ -1,0 +1,65 @@
+You are a remote sensing and computer vision expert. In the xView aerial/satellite dataset, visual similarity between two object categories is the cosine similarity of DINOv2 (Vision Transformer) features extracted from real aerial images (range 0–1; higher = more alike in overhead appearance).
+IMPORTANT — what DINOv2 actually encodes here:
+
+DINOv2 features are extracted from each object's bounding box expanded by 15% on each side, so the feature captures the object AND its immediate surrounding context (adjacent terrain, nearby structures, ground texture).
+These ViT features are driven mainly by TEXTURE, STRUCTURE, SCALE, and SURROUNDING CONTEXT — NOT by object semantics or category meaning. Two categories that are semantically unrelated can score very high if they share the same overhead texture/scale/background. Color is a weak, secondary signal.
+Therefore: reason about how regions LOOK and what SCENE they sit in from directly overhead, never about what the object "is for."
+There are two groups of categories. The fixed COLUMN ORDER for everything below is: all base classes first, then all novel classes, exactly as listed here.
+Base classes (16): "fixed wing aircraft", "helicopter", "small car", "bus", "truck", "locomotive", "motorboat", "tugboat", "container ship", "oil tanker", "tower crane", "straddle carrier", "excavator", "building", "aircraft hangar", "storage tank"
+Novel classes (4): "passenger plane or cargo plane", "sailboat", "ferry", "dump truck"
+I have NO images for the novel classes — predicting their similarities is your task.
+I have real aerial images for the base classes, so the matrix below contains the ACTUAL DINOv2 cosine similarities measured on those images — i.e. the specific behavior of the DINOv2 extractor, not abstract "true" similarity (another backbone would give different numbers). Predict the values DINOv2 WOULD produce for the novel classes, matching the texture/scale/context-driven patterns in this matrix.
+BASE CLASS SIMILARITY MATRIX:
+fixed wing aircraft             helicopter              small car                    bus                  truck             locomotive              motorboat                tugboat         container ship             oil tanker            tower crane       straddle carrier              excavator               building        aircraft hangar           storage tank
+fixed wing aircraft         1.000  0.781  0.489  0.545  0.604  0.635  0.554  0.632  0.467  0.415  0.611  0.496  0.654  0.643  0.585  0.631
+helicopter                  0.781  1.000  0.535  0.594  0.655  0.677  0.603  0.662  0.457  0.404  0.661  0.537  0.713  0.679  0.585  0.692
+small car                   0.489  0.535  1.000  0.905  0.896  0.748  0.894  0.617  0.357  0.260  0.442  0.377  0.740  0.687  0.354  0.702
+bus                         0.545  0.594  0.905  1.000  0.964  0.844  0.862  0.704  0.434  0.313  0.527  0.465  0.803  0.800  0.455  0.764
+truck                       0.604  0.655  0.896  0.964  1.000  0.911  0.880  0.739  0.454  0.333  0.592  0.503  0.884  0.862  0.496  0.805
+locomotive                  0.635  0.677  0.748  0.844  0.911  1.000  0.763  0.769  0.513  0.381  0.675  0.590  0.840  0.903  0.597  0.793
+motorboat                   0.554  0.603  0.894  0.862  0.880  0.763  1.000  0.748  0.455  0.366  0.499  0.444  0.786  0.747  0.403  0.764
+tugboat                     0.632  0.662  0.617  0.704  0.739  0.769  0.748  1.000  0.777  0.736  0.722  0.670  0.709  0.800  0.641  0.741
+container ship              0.467  0.457  0.357  0.434  0.454  0.513  0.455  0.777  1.000  0.891  0.671  0.697  0.446  0.574  0.646  0.556
+oil tanker                  0.415  0.404  0.260  0.313  0.333  0.381  0.366  0.736  0.891  1.000  0.645  0.624  0.345  0.455  0.605  0.474
+tower crane                 0.611  0.661  0.442  0.527  0.592  0.675  0.499  0.722  0.671  0.645  1.000  0.788  0.627  0.779  0.831  0.731
+straddle carrier            0.496  0.537  0.377  0.465  0.503  0.590  0.444  0.670  0.697  0.624  0.788  1.000  0.501  0.683  0.736  0.608
+excavator                   0.654  0.713  0.740  0.803  0.884  0.840  0.786  0.709  0.446  0.345  0.627  0.501  1.000  0.804  0.471  0.801
+building                    0.643  0.679  0.687  0.800  0.862  0.903  0.747  0.800  0.574  0.455  0.779  0.683  0.804  1.000  0.757  0.824
+aircraft hangar             0.585  0.585  0.354  0.455  0.496  0.597  0.403  0.641  0.646  0.605  0.831  0.736  0.471  0.757  1.000  0.636
+storage tank                0.631  0.692  0.702  0.764  0.805  0.793  0.764  0.741  0.556  0.474  0.731  0.608  0.801  0.824  0.636  1.000
+Value range: min=0.260, mean=0.64, max=0.964
+Work through the following steps. Steps 1–5 are reasoning; only the final block is the deliverable.
+STEP 1 — Appearance. For every category (all base and all novel classes), write one short line describing how it looks from directly above: dominant texture, typical footprint size/scale, shape, the surrounding scene it usually sits in, and any distinctive overhead signature. Emphasize texture/scale/context over color.
+STEP 2 — Reverse-engineer the embedding structure from the real matrix. Before predicting anything, study the base matrix and state, in your own words, the latent axes / clusters that DINOv2 appears to encode in THIS dataset. Identify which groups of base classes cluster tightly and why, and note that proximity is driven by shared texture/scale/context, not semantics. (As guidance, look at evidence like: bus–truck 0.964, small car–bus 0.905, small car–truck 0.896, small car–motorboat 0.894, truck–excavator 0.884 forming one "small / compact hard-surface vehicle & machinery" cluster (motorboat, excavator and locomotive get pulled in by shared scale/texture despite different function); oil tanker–container ship 0.891 forming a "large water vessel" cluster with tugboat sitting nearby (~0.74–0.78); tower crane–aircraft hangar 0.831, tower crane–straddle carrier 0.788, building–storage tank 0.824 forming a "tall / built port-industrial structure" cluster; fixed wing aircraft–helicopter 0.781 forming a tight "aircraft" pair that stays only moderate with everything else; "building" being a CENTRAL/generic node scoring high with most classes; and "oil tanker" and "small car" being PERIPHERAL classes at opposite ends of the scale axis, e.g. oil tanker–small car 0.260 is the matrix minimum.) Summarize the main axes you infer.
+STEP 3 — Calibrate the scale on FIXED, partly counterintuitive pairs. Using your Step-1 appearance and Step-2 axes, explain why each of these specific real values sits where it does:
+
+bus vs truck = 0.964 (HIGH, same compact-vehicle cluster)
+locomotive vs building = 0.903 (HIGH despite unrelated semantics — what shared large-elongated structure / texture produces this?)
+small car vs motorboat = 0.894 (HIGH despite unrelated semantics — a car and a boat, joined by shared small compact scale/texture)
+oil tanker vs container ship = 0.891 (HIGH, same large-vessel cluster)
+tugboat vs tower crane = 0.722 (MID, partial overlap across vessel/port clusters)
+fixed wing aircraft vs building = 0.643 (MID)
+oil tanker vs bus = 0.313 (LOW, opposite ends of the scale axis)
+oil tanker vs small car = 0.260 (LOW, matrix minimum — huge tanker vs tiny car, extreme scale/texture mismatch)
+This anchors your appearance reasoning to the dataset's numeric scale. Note the target distribution you must roughly reproduce: min≈0.26, mean≈0.64, max≈0.96. Real rows use the FULL range — do not compress everything into 0.5–0.7.
+STEP 4 — Place each novel class and decide whether to "borrow a row".
+
+First decide, for each novel class, whether a base class is a STRONG overhead twin (near-identical texture, scale, and surrounding scene). If yes, anchor that novel class's whole similarity row to the twin's row and then adjust individual cells where the novel class differs. If NO base class is a strong twin, do NOT force-fit one — derive the row directly from the Step-1 appearance and the Step-2/3 calibrated scale.
+(Candidate twins to evaluate, not to assume blindly: passenger plane or cargo plane ↔ fixed wing aircraft (a large fixed-wing airframe — likely a strong twin, perhaps even larger/cleaner so adjust slightly); dump truck ↔ truck / excavator (large heavy ground vehicle in the compact-vehicle cluster); sailboat ↔ motorboat (small water vessel — but masts/sails make it somewhat more distinctive, so soften the borrow); ferry ↔ container ship / tugboat, but consider a ferry is a large passenger vessel sitting between the small-boat and large-ship clusters rather than squarely in either.)
+Also state whether each novel class is "central/generic" (tends to score moderately high with many classes, like building) or "peripheral/distinctive" (tends to score low with most, like oil tanker or small car). Use this to set the overall level of its row.
+STEP 5 — Predict and self-check. For each novel class, produce its similarity to every category in the fixed column order (base classes first, then novel classes), each value grounded in Steps 1–4. Then verify ALL of the following before writing the final block:
+
+Self-similarity = 1.00.
+Novel-to-novel pairs are symmetric — identical value in both directions:
+(passenger plane or cargo plane, sailboat), (passenger plane or cargo plane, ferry), (passenger plane or cargo plane, dump truck),
+(sailboat, ferry), (sailboat, dump truck),
+(ferry, dump truck).
+Range coverage: each row uses a realistic spread; your overall set of values should roughly match min≈0.26 / mean≈0.64 / max≈0.96, not be squeezed toward the middle.
+Rough transitivity: if a novel class is very similar to some base class X, its values should not wildly contradict X's own row (e.g. if passenger plane or cargo plane≈fixed wing aircraft is high, its value with helicopter should sit near fixed wing aircraft–helicopter≈0.781).
+After your reasoning, output ONLY this block — 4 rows, each with 20 values in the fixed column order (base then novel), 2 decimals. The block must be the LAST thing in your response, with no text after it:
+===MATRIX START===
+passenger plane or cargo plane: v1 v2 ... v20
+sailboat: v1 v2 ... v20
+ferry: v1 v2 ... v20
+dump truck: v1 v2 ... v20
+===MATRIX END===
